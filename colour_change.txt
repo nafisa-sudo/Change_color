@@ -1,0 +1,132 @@
+import cv2
+import numpy as np
+
+
+def nothing(x):
+    pass
+
+
+cont = 1
+# Create a black image, a window
+i = 'Select The Region'
+i2 = 'Select The Color Range'
+img = np.zeros((300, 512, 3), np.uint8)
+frame = cv2.imread('C:/Users/Nafisa/Desktop/tshirt.jpg')
+while (cont == 1):
+    cv2.namedWindow(i, cv2.WINDOW_NORMAL)
+    rows, cols, c = frame.shape
+    a = "Left: "
+    b = "Right: "
+    c = "Top: "
+    d = "Bottom: "
+    cv2.createTrackbar(a, i, 0, cols, nothing)
+    cv2.createTrackbar(b, i, 0, cols, nothing)
+    cv2.createTrackbar(c, i, 0, rows, nothing)
+    cv2.createTrackbar(d, i, 0, rows, nothing)
+    cv2.setTrackbarPos(a, i, 0)
+    cv2.setTrackbarPos(b, i, cols)
+    cv2.setTrackbarPos(c, i, 0)
+    cv2.setTrackbarPos(d, i, rows)
+    while (1):
+        k = 1
+        j = cv2.waitKey(5) & 0xFF
+        if j == 27:
+            break
+        a1 = cv2.getTrackbarPos(a, i)
+        a2 = cv2.getTrackbarPos(b, i)
+        b1 = cv2.getTrackbarPos(c, i)
+        b2 = cv2.getTrackbarPos(d, i)
+        if (b2 <= b1):
+            b2 = b1
+            cv2.setTrackbarPos(d, i, b2)
+            k = 0
+        if (a2 <= a1):
+            a2 = a1
+            cv2.setTrackbarPos(b, i, a2)
+            k = 0
+        if (not k == 0):
+            roi = frame[b1:b2, a1:a2]
+        cv2.imshow(i, roi)
+    cv2.destroyAllWindows()
+    cv2.namedWindow(i2, cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Mask', cv2.WINDOW_NORMAL)
+    x = 'To record lower limit:0\nTo record upper limit:2'
+    cv2.createTrackbar('Hue', i2, 0, 180, nothing)
+    cv2.createTrackbar('Saturation', i2, 0, 255, nothing)
+    cv2.createTrackbar('Value', i2, 0, 255, nothing)
+    cv2.createTrackbar(x, i2, 0, 2, nothing)
+    cv2.setTrackbarPos('Saturation', i2, 255)
+    cv2.setTrackbarPos('Value', i2, 255)
+    l = np.array([0, 0, 0])
+    u = np.array([255, 255, 255])
+    cv2.setTrackbarPos(x, i2, 1)
+    while (1):
+        k = cv2.waitKey(5) & 0xFF
+        if k == 27:
+            break
+        h = cv2.getTrackbarPos('Hue', i2)
+        s = cv2.getTrackbarPos('Saturation', i2)
+        v = cv2.getTrackbarPos('Value', i2)
+        H = cv2.getTrackbarPos(x, i2)
+        hi = np.uint8([[[h, s, v]]])
+        bgr = cv2.cvtColor(hi, cv2.COLOR_HSV2BGR)
+        blue = bgr[0][0][0]
+        green = bgr[0][0][1]
+        red = bgr[0][0][2]
+        img[:] = [blue, green, red]
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        if H == 0:
+            l = np.array([h, s, v])
+        elif H == 2:
+            u = np.array([h, s, v])
+        mask = cv2.inRange(hsv, l, u)
+        cmask = cv2.bitwise_and(roi, roi, mask=mask)
+        cv2.imshow(i2, img)
+        cv2.imshow("Mask", cmask)
+    cv2.destroyAllWindows()
+    i3 = "Select the shade to replace with"
+    cv2.namedWindow(i3, cv2.WINDOW_NORMAL)
+    cv2.createTrackbar("Shade:", i3, 0, 180, nothing)
+    j = cv2.cvtColor(cmask, cv2.COLOR_BGR2GRAY)
+    h, j = cv2.threshold(j, 5, 255, cv2.THRESH_BINARY)
+
+    while (1):
+        k = cv2.waitKey(5) & 0xFF
+        if k == 27:
+            break
+        u = cv2.getTrackbarPos("Shade:", i3)
+
+        hi = np.uint8([[[u, 255, 255]]])
+        bgr = cv2.cvtColor(hi, cv2.COLOR_HSV2BGR)
+        blue = bgr[0][0][0]
+        green = bgr[0][0][1]
+        red = bgr[0][0][2]
+        img[:] = [blue, green, red]
+        cv2.imshow(i3, img)
+        hsv = cv2.cvtColor(cmask, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        h[:] = [u]
+        hsv = cv2.merge([h, s, v])
+        cmask = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        cmask = cv2.bitwise_and(cmask, cmask, mask=j)
+        cv2.imshow('cmask', cmask)
+
+    cv2.destroyAllWindows()
+    g = cv2.cvtColor(cmask, cv2.COLOR_BGR2GRAY)
+
+    ret, g = cv2.threshold(g, 10, 255, cv2.THRESH_BINARY)
+
+    cv2.destroyAllWindows()
+    if (np.any(g)):
+        imask = cv2.bitwise_not(g)
+    else:
+        imask = cv2.bitwise_not(j)
+    roi = cv2.bitwise_and(roi, roi, mask=imask)
+    roi = cv2.add(roi, cmask)
+    cv2.imshow('Change Succesful', roi)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    frame[b1:b2, a1:a2] = roi
+    cv2.imshow('Final Pic', frame)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
